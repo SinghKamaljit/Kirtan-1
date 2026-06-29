@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#0d0d1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Voice Echo">
+<meta name="apple-mobile-web-app-title" content="Kirtan 1">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Voice Echo</title>
+<title>Kirtan 1</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=Inter:wght@400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -161,7 +161,7 @@
 
   <header>
     <div class="header-title">
-      <h1>Voice Echo</h1>
+      <h1>Kirtan 1</h1>
       <p>Listen · Sing · Learn</p>
     </div>
     <div class="header-actions">
@@ -188,7 +188,7 @@
 
   <div class="ref-area" id="refArea">
     <div class="png-slot active" id="pngSlot">
-      <img src="1.png" alt="Shabad">
+      <img src="1.jpg" alt="Shabad">
     </div>
     <textarea id="lyricsBox" class="lyrics-box"
       placeholder="Paste shabad, paath, song lyrics or notes here…"
@@ -310,6 +310,15 @@ const PLAY_AT_MS = 60000;
 const CIRC       = 2 * Math.PI * 52;
 const MAX_HISTORY = 5;
 
+/* ── APP IDENTITY — change only manifest.json, nothing here ever needs editing ── */
+let APP_ID   = 'kirtan1';   // safe fallback
+let APP_NAME = 'Kirtan 1';
+fetch('./manifest.json').then(r=>r.json()).then(m=>{
+  APP_NAME = m.short_name || m.name || APP_NAME;
+  APP_ID   = APP_NAME.replace(/\s+/g,'').toLowerCase(); // "Kirtan 2" → "kirtan2"
+  document.querySelector('h1').textContent = APP_NAME;
+}).catch(()=>{});
+
 /* ── INSTALL ── */
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; document.getElementById('installBtn').style.display = 'block'; });
@@ -321,8 +330,9 @@ const lyricsBox    = document.getElementById('lyricsBox');
 const refToggleBtn = document.getElementById('refToggleBtn');
 let refVisible = true;
 let activeSlot = 'png';
-const LYRICS_KEY     = 've_lyricsHistory';
 const MAX_LYR_HIST   = 10;
+// All storage keys are built from APP_ID — no manual changes ever needed
+const key = s => APP_ID + '_' + s;  // e.g. key('lyrics') → 'kirtan2_lyrics'
 
 function switchRefSlot(slot) {
   activeSlot = slot;
@@ -331,16 +341,16 @@ function switchRefSlot(slot) {
   document.getElementById('pngSlot').classList.toggle('active',       slot==='png');
   lyricsBox.classList.toggle('active',                                slot==='text');
   document.getElementById('shabadActions').classList.toggle('active', slot==='text');
-  try { localStorage.setItem('ve_activeSlot', slot); } catch(e) {}
+  try { localStorage.setItem(key('activeSlot'), slot); } catch(e) {}
 }
 function toggleRef() {
   refVisible = !refVisible;
   document.getElementById('refArea').classList.toggle('hidden', !refVisible);
   refToggleBtn.textContent = refVisible ? 'Hide' : 'Show';
-  try { localStorage.setItem('ve_refVis', refVisible ? '1' : '0'); } catch(e) {}
+  try { localStorage.setItem(key('refVis'), refVisible ? '1' : '0'); } catch(e) {}
 }
-function onLyricsInput() { try { localStorage.setItem('ve_lyrics', lyricsBox.value); } catch(e) {} }
-function getLyricsHistory() { try { return JSON.parse(localStorage.getItem(LYRICS_KEY) || '[]'); } catch(e) { return []; } }
+function onLyricsInput() { try { localStorage.setItem(key('lyrics'), lyricsBox.value); } catch(e) {} }
+function getLyricsHistory() { try { return JSON.parse(localStorage.getItem(key('lyricsHistory')) || '[]'); } catch(e) { return []; } }
 function saveLyricsToHistory() {
   const text = lyricsBox.value.trim(); if (!text) return;
   try {
@@ -348,14 +358,14 @@ function saveLyricsToHistory() {
     if (h.length && h[0].text === text) return;
     h.unshift({ text, ts: Date.now() });
     if (h.length > MAX_LYR_HIST) h = h.slice(0, MAX_LYR_HIST);
-    localStorage.setItem(LYRICS_KEY, JSON.stringify(h));
+    localStorage.setItem(key('lyricsHistory'), JSON.stringify(h));
   } catch(e) {}
 }
 function newLyrics() {
   const text = lyricsBox.value.trim();
   if (text && !confirm('Clear current shabad and start fresh?')) return;
   if (text) saveLyricsToHistory();
-  lyricsBox.value = ''; try { localStorage.setItem('ve_lyrics', ''); } catch(e) {}
+  lyricsBox.value = ''; try { localStorage.setItem(key('lyrics'), ''); } catch(e) {}
   lyricsBox.focus(); if (!refVisible) toggleRef();
 }
 function toggleLyricsPicker() {
@@ -381,14 +391,14 @@ function renderLyricsPicker() {
 function loadLyricsFromHistory(idx) {
   const h = getLyricsHistory(); if (!h[idx]) return;
   const cur = lyricsBox.value.trim(); if (cur && cur !== h[idx].text) saveLyricsToHistory();
-  lyricsBox.value = h[idx].text; try { localStorage.setItem('ve_lyrics', h[idx].text); } catch(e) {}
+  lyricsBox.value = h[idx].text; try { localStorage.setItem(key('lyrics'), h[idx].text); } catch(e) {}
   closeLyricsPicker(); if (!refVisible) toggleRef(); lyricsBox.scrollTop = 0;
 }
 function initLyrics() {
   try {
-    const t = localStorage.getItem('ve_lyrics'); if (t !== null) lyricsBox.value = t;
-    switchRefSlot(localStorage.getItem('ve_activeSlot') || 'png');
-    if (localStorage.getItem('ve_refVis') === '0') { refVisible = true; toggleRef(); }
+    const t = localStorage.getItem(key('lyrics')); if (t !== null) lyricsBox.value = t;
+    switchRefSlot(localStorage.getItem(key('activeSlot')) || 'png');
+    if (localStorage.getItem(key('refVis')) === '0') { refVisible = true; toggleRef(); }
   } catch(e) {}
 }
 document.addEventListener('click', e => {
@@ -488,7 +498,7 @@ function fmtDate(ts) { return new Date(ts).toLocaleDateString(undefined,{weekday
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}); }
 function fmtExportName(ts) {
   const d=new Date(ts), p=n=>String(n).padStart(2,'0');
-  return `VoiceEcho_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}.webm`;
+  return `${APP_ID}_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}.webm`;
 }
 
 function getEls(idx) {
@@ -547,7 +557,7 @@ function deleteLast(idx) {
 
 async function shareOrDownload(blob, filename, mimeType) {
   if (navigator.share && navigator.canShare && navigator.canShare({ files:[new File([blob],filename,{type:mimeType})] })) {
-    try { await navigator.share({ files:[new File([blob],filename,{type:mimeType})], title:'Voice Echo Recording' }); return; } catch(e) {}
+    try { await navigator.share({ files:[new File([blob],filename,{type:mimeType})], title:APP_NAME+' Recording' }); return; } catch(e) {}
   }
   const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),5000);
@@ -560,7 +570,7 @@ async function releaseWakeLock() { if (wakeLock) { try { await wakeLock.release(
 document.addEventListener('visibilitychange', async () => { if (document.visibilityState==='visible' && activeSessionIdx!==null) await acquireWakeLock(); });
 
 /* ── INDEXEDDB ── */
-const DB_NAME='voiceEchoDB', DB_VER=2;
+const DB_NAME=APP_ID+'DB', DB_VER=2;
 let db=null, useIDB=false;
 function openDB() {
   return new Promise((res,rej) => {
